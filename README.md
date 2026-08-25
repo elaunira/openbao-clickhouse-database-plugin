@@ -15,9 +15,9 @@ This plugin provides ClickHouse database connectivity for [OpenBao](https://open
 
 ## Prerequisites
 
-- OpenBao 2.4.4 or later (uses SDK v2.4.0)
+- OpenBao 2.4.4 or later (uses SDK v2.6.2)
 - ClickHouse 21.8 or later with SQL user management enabled (tested with v25.12)
-- Go 1.23+ (for building from source)
+- Go 1.26+ (for building from source)
 
 ### ClickHouse Requirements
 
