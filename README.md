@@ -15,9 +15,9 @@ This plugin provides ClickHouse database connectivity for [OpenBao](https://open
 
 ## Prerequisites
 
-- OpenBao 2.4.4 or later (uses SDK v2.4.0)
+- OpenBao 2.4.4 or later (uses SDK v2.6.2)
 - ClickHouse 21.8 or later with SQL user management enabled (tested with v25.12)
-- Go 1.23+ (for building from source)
+- Go 1.26+ (for building from source)
 
 ### ClickHouse Requirements
 
@@ -93,6 +93,153 @@ bao plugin register -sha256=$PLUGIN_SHA256 database clickhouse-database-plugin
 ```bash
 bao secrets enable database
 ```
+
+## Container Image
+
+A prebuilt OpenBao image with this plugin already installed is published to GitHub
+Container Registry on every `v*` tag by the `Docker` workflow
+(`.github/workflows/docker.yml`); it can also be run manually via
+`workflow_dispatch`:
+
+```bash
+# Alpine flavour (default)
+docker pull ghcr.io/elaunira/openbao-plugin-database-clickhouse:latest
+
+# UBI flavour
+docker pull ghcr.io/elaunira/openbao-plugin-database-clickhouse:latest-ubi
+```
+
+### Tags
+
+A `v1.2.3` release built on the OpenBao 2.4.4 base image publishes:
+
+| Tag | Meaning |
+| --- | --- |
+| `2.4.4-1.2.3` | OpenBao base version and plugin version, both pinned |
+| `1.2.3` | Plugin version, on whichever base that release was built with |
+| `1.2` | Latest patch of that plugin minor |
+| `latest` | Most recent release |
+| `sha-abc1234` | The exact commit the image was built from |
+
+The UBI flavour publishes the same set with `-ubi` appended
+(`2.4.4-1.2.3-ubi`, `latest-ubi`, and so on). Pin `2.4.4-1.2.3` for
+reproducible deployments: the plugin-only tags follow whatever base version the
+workflow was run with, so the OpenBao version underneath them can change
+between releases.
+
+Images are built for `linux/amd64` and `linux/arm64`, based on the upstream
+`openbao/openbao` and `openbao/openbao-ubi` images. The plugin binary lives at
+`/openbao/plugins/clickhouse-database-plugin`.
+
+The plugin self-reports the tag it was built from, so a `v1.2.3` tag produces a
+plugin registered in the catalog as `v1.2.3`. The workflow fails fast if the tag
+is not a valid semantic version; builds from `workflow_dispatch` on a branch are
+stamped `v0.0.0-dev.g<short-sha>`.
+
+### Running
+
+The default command starts a dev-mode server with the plugin directory already
+registered:
+
+```bash
+docker run --rm -p 8200:8200 ghcr.io/elaunira/openbao-plugin-database-clickhouse:latest
+
+export BAO_ADDR=http://127.0.0.1:8200
+export BAO_TOKEN=root
+bao plugin list database   # clickhouse-database-plugin is listed
+```
+
+For production, mount a config file that declares the plugin directory and
+register the plugin explicitly:
+
+```hcl
+# /openbao/config/bao.hcl
+plugin_directory = "/openbao/plugins"
+
+storage "file" {
+  path = "/openbao/file"
+}
+
+listener "tcp" {
+  address     = "0.0.0.0:8200"
+  tls_disable = false
+  tls_cert_file = "/openbao/config/tls.crt"
+  tls_key_file  = "/openbao/config/tls.key"
+}
+```
+
+```bash
+docker run -d --name openbao \
+  -p 8200:8200 \
+  -v "$PWD/config:/openbao/config" \
+  -v openbao-data:/openbao/file \
+  ghcr.io/elaunira/openbao-plugin-database-clickhouse:latest \
+  server -config=/openbao/config/bao.hcl
+```
+
+### Local Test Stack
+
+`docker-compose.yml` brings up ClickHouse plus a dev-mode OpenBao with this
+plugin built in, configured against it and a `readonly` role already created:
+
+```bash
+make compose-up          # or: docker compose up -d --build
+
+export BAO_ADDR=http://127.0.0.1:8200
+export BAO_TOKEN=root
+
+bao read database/creds/readonly
+make compose-down        # or: docker compose down -v
+```
+
+The `configure` service runs once at startup: it mounts the database secrets
+engine, writes `database/config/clickhouse`, creates the `readonly` role and
+issues a test credential. Check it with `docker compose logs configure`.
+
+Overridable via the environment (or a `.env` file): `CLICKHOUSE_VERSION`,
+`CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`, `CLICKHOUSE_HTTP_PORT`,
+`CLICKHOUSE_NATIVE_PORT`, `OPENBAO_VERSION`, `PLUGIN_VERSION`, `BAO_PORT` and
+`BAO_ROOT_TOKEN`.
+
+The stack runs OpenBao in dev mode — in-memory storage, no TLS and a fixed root
+token. Use it for local testing only.
+
+### Building Locally
+
+```bash
+# Alpine flavour
+make docker-build
+
+# UBI flavour
+make docker-build-ubi
+
+# Dev-mode server on http://127.0.0.1:8200 with the plugin registered
+make docker-run
+
+# Multi-arch build (add PUSH=true to publish; multi-arch images cannot be
+# loaded into the local Docker daemon)
+make docker-buildx PUSH=true IMAGE_TAG=1.0.0
+
+# Pin the OpenBao base version and stamp the plugin version
+make docker-build OPENBAO_VERSION=2.4.4 PLUGIN_VERSION=1.0.0 IMAGE_TAG=1.0.0
+```
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `IMAGE` | `ghcr.io/elaunira/openbao-plugin-database-clickhouse` | Image name |
+| `IMAGE_TAG` | `local` | Image tag (`-ubi` appended for the UBI flavour) |
+| `OPENBAO_VERSION` | `2.4.4` | OpenBao base image version |
+| `PLUGIN_VERSION` | `v0.0.0-dev` | Version the plugin self-reports |
+| `PLATFORMS` | `linux/amd64,linux/arm64` | Platforms for `docker-buildx` |
+| `PUSH` | unset | Set to `true` to push from `docker-buildx` |
+
+The equivalent raw Docker commands are `docker build --load --target default .`
+and `docker build --load --target ubi .`.
+
+`PLUGIN_VERSION` must be a valid semantic version with a leading `v`. OpenBao
+rejects plugins that self-report a non-semver version, and its catalog lookups
+normalise to a `v` prefix — a plugin stamped `1.0.0` registers as `1.0.0` but is
+then looked up as `v1.0.0` and reported as "plugin not found in the catalog".
 
 ## Usage
 

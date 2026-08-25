@@ -1,0 +1,145 @@
+name: Docker
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      openbao_version:
+        description: OpenBao base image version
+        required: false
+        default: '2.4.4'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DEFAULT_OPENBAO_VERSION: '2.4.4'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - flavour: default
+            suffix: ''
+          - flavour: ubi
+            suffix: '-ubi'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve OpenBao version
+        id: openbao
+        run: echo "version=${{ inputs.openbao_version || env.DEFAULT_OPENBAO_VERSION }}" >> "$GITHUB_OUTPUT"
+
+      # The plugin self-reports this version. OpenBao rejects a non-semver
+      # version outright, and normalises catalog lookups to a leading "v", so a
+      # version without one registers but is never found.
+      - name: Resolve plugin version
+        id: plugin
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME}"
+            case "$version" in v*) ;; *) version="v${version}" ;; esac
+            if ! printf '%s' "$version" \
+              | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+              echo "::error::Tag '${GITHUB_REF_NAME}' is not a valid semantic version (expected vMAJOR.MINOR.PATCH); OpenBao would reject the plugin." >&2
+              exit 1
+            fi
+          else
+            # Not a release: a 0.0.0 prerelease stamped with the short SHA. The
+            # "g" prefix keeps the identifier non-numeric, which semver requires
+            # for identifiers that would otherwise have a leading zero.
+            version="v0.0.0-dev.g$(printf '%s' "${GITHUB_SHA}" | cut -c1-7)"
+          fi
+          echo "Plugin version: ${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          # Image tags carry the bare version: "2.4.4-1.2.3", not
+          # "2.4.4-v1.2.3".
+          echo "bare=${version#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=auto
+            suffix=${{ matrix.suffix }},onlatest=true
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=raw,value=${{ steps.openbao.outputs.version }}-${{ steps.plugin.outputs.bare }}
+          labels: |
+            org.opencontainers.image.title=openbao-clickhouse
+            org.opencontainers.image.description=OpenBao with the ClickHouse database secrets plugin preinstalled
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.flavour }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            OPENBAO_VERSION=${{ steps.openbao.outputs.version }}
+            VERSION=${{ steps.plugin.outputs.version }}
+          cache-from: type=gha,scope=${{ matrix.flavour }}
+          cache-to: type=gha,scope=${{ matrix.flavour }},mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify the plugin is present and runnable
+        run: |
+          set -euo pipefail
+          image="${REGISTRY}/${IMAGE_NAME}:sha-$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          docker run --rm --entrypoint sh "$image" -c \
+            'test -x /openbao/plugins/clickhouse-database-plugin && echo "plugin OK"'

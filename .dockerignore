@@ -1,0 +1,8 @@
+.git
+.github
+*.md
+!LICENSE
+clickhouse-database-plugin
+clickhouse-database-plugin-*
+docker-compose.yml
+.env

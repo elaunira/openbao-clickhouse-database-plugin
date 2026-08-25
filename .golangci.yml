@@ -48,6 +48,9 @@ linters:
     goconst:
       min-len: 2
       min-occurrences: 2
+      # Table-driven test cases repeat fixture strings by design; hoisting them
+      # into constants makes the tables harder to read, not easier.
+      ignore-tests: true
     gocritic:
       enabled-tags:
         - diagnostic
@@ -70,6 +73,8 @@ linters:
           - dupl
           - gosec
           - gocognit
+          - goconst
       - path: testhelpers/
         linters:
           - gocyclo
+          - goconst

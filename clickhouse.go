@@ -23,6 +23,12 @@ const (
 
 	defaultUserNameTemplate = `{{ printf "v-%s-%s-%s-%s" (.DisplayName | truncate 8) (.RoleName | truncate 8) (random 15) (unix_time) | truncate 32 }}`
 
+	// Placeholders substituted into the configured SQL statements.
+	fieldName       = "name"
+	fieldUsername   = "username"
+	fieldPassword   = "password"
+	fieldExpiration = "expiration"
+
 	defaultRevocationStatement        = `DROP USER IF EXISTS '{{name}}'`
 	defaultRotateCredentialsStatement = `ALTER USER IF EXISTS '{{name}}' IDENTIFIED BY '{{password}}'` //nolint:gosec // Not hardcoded credentials, SQL template
 )
@@ -140,10 +146,10 @@ func (c *Clickhouse) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (
 	expirationStr := req.Expiration.Format(time.DateTime)
 
 	err = c.executeStatementsWithMap(ctx, req.Statements.Commands, map[string]string{
-		"name":       username,
-		"username":   username,
-		"password":   req.Password,
-		"expiration": expirationStr,
+		fieldName:       username,
+		fieldUsername:   username,
+		fieldPassword:   req.Password,
+		fieldExpiration: expirationStr,
 	})
 	if err != nil {
 		return dbplugin.NewUserResponse{}, fmt.Errorf("failed to create user: %w", err)
@@ -187,9 +193,9 @@ func (c *Clickhouse) updateUserPassword(ctx context.Context, username string, ch
 	}
 
 	return c.executeStatementsWithMap(ctx, statements, map[string]string{
-		"name":     username,
-		"username": username,
-		"password": changePassword.NewPassword,
+		fieldName:     username,
+		fieldUsername: username,
+		fieldPassword: changePassword.NewPassword,
 	})
 }
 
@@ -203,9 +209,9 @@ func (c *Clickhouse) updateUserExpiration(ctx context.Context, username string, 
 	expirationStr := changeExpiration.NewExpiration.Format(time.DateTime)
 
 	return c.executeStatementsWithMap(ctx, statements, map[string]string{
-		"name":       username,
-		"username":   username,
-		"expiration": expirationStr,
+		fieldName:       username,
+		fieldUsername:   username,
+		fieldExpiration: expirationStr,
 	})
 }
 
@@ -220,8 +226,8 @@ func (c *Clickhouse) DeleteUser(ctx context.Context, req dbplugin.DeleteUserRequ
 	}
 
 	err := c.executeStatementsWithMap(ctx, statements, map[string]string{
-		"name":     req.Username,
-		"username": req.Username,
+		fieldName:     req.Username,
+		fieldUsername: req.Username,
 	})
 	if err != nil {
 		return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to delete user: %w", err)
@@ -295,7 +301,7 @@ func splitStatements(s string) []string {
 
 func (c *Clickhouse) secretValues() map[string]string {
 	return map[string]string{
-		c.Password: "[password]",
+		c.Password: maskedPassword,
 	}
 }
 
