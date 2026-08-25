@@ -94,6 +94,85 @@ bao plugin register -sha256=$PLUGIN_SHA256 database clickhouse-database-plugin
 bao secrets enable database
 ```
 
+## Container Image
+
+A prebuilt OpenBao image with this plugin already installed is published to GitHub
+Container Registry on every `v*` tag by the `Docker` workflow
+(`.github/workflows/docker.yml`); it can also be run manually via
+`workflow_dispatch`:
+
+```bash
+# Alpine flavour (default)
+docker pull ghcr.io/digitalis-io/openbao-plugin-database-clickhouse:latest
+
+# UBI flavour
+docker pull ghcr.io/digitalis-io/openbao-plugin-database-clickhouse:latest-ubi
+```
+
+Images are built for `linux/amd64` and `linux/arm64`, based on the upstream
+`openbao/openbao` and `openbao/openbao-ubi` images. The plugin binary lives at
+`/openbao/plugins/clickhouse-database-plugin`.
+
+### Running
+
+The default command starts a dev-mode server with the plugin directory already
+registered:
+
+```bash
+docker run --rm -p 8200:8200 ghcr.io/digitalis-io/openbao-plugin-database-clickhouse:latest
+
+export BAO_ADDR=http://127.0.0.1:8200
+export BAO_TOKEN=root
+bao plugin list database   # clickhouse-database-plugin is listed
+```
+
+For production, mount a config file that declares the plugin directory and
+register the plugin explicitly:
+
+```hcl
+# /openbao/config/bao.hcl
+plugin_directory = "/openbao/plugins"
+
+storage "file" {
+  path = "/openbao/file"
+}
+
+listener "tcp" {
+  address     = "0.0.0.0:8200"
+  tls_disable = false
+  tls_cert_file = "/openbao/config/tls.crt"
+  tls_key_file  = "/openbao/config/tls.key"
+}
+```
+
+```bash
+docker run -d --name openbao \
+  -p 8200:8200 \
+  -v "$PWD/config:/openbao/config" \
+  -v openbao-data:/openbao/file \
+  ghcr.io/digitalis-io/openbao-plugin-database-clickhouse:latest \
+  server -config=/openbao/config/bao.hcl
+```
+
+### Building Locally
+
+```bash
+# Alpine flavour
+docker build --target default -t openbao-clickhouse:local .
+
+# UBI flavour
+docker build --target ubi -t openbao-clickhouse:local-ubi .
+
+# Pin the OpenBao base version and stamp the plugin version
+docker build --target default \
+  --build-arg OPENBAO_VERSION=2.4.4 \
+  --build-arg VERSION=1.0.0 \
+  -t openbao-clickhouse:local .
+```
+
+`VERSION` must be a valid semantic version — OpenBao rejects plugins that
+self-report a non-semver version.
+
 ## Usage
 
 The plugin is registered and used with the name `clickhouse-database-plugin`. This name is:
