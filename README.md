@@ -109,6 +109,24 @@ docker pull ghcr.io/digitalis-io/openbao-plugin-database-clickhouse:latest
 docker pull ghcr.io/digitalis-io/openbao-plugin-database-clickhouse:latest-ubi
 ```
 
+### Tags
+
+A `v1.2.3` release built on the OpenBao 2.4.4 base image publishes:
+
+| Tag | Meaning |
+| --- | --- |
+| `2.4.4-1.2.3` | OpenBao base version and plugin version, both pinned |
+| `1.2.3` | Plugin version, on whichever base that release was built with |
+| `1.2` | Latest patch of that plugin minor |
+| `latest` | Most recent release |
+| `sha-abc1234` | The exact commit the image was built from |
+
+The UBI flavour publishes the same set with `-ubi` appended
+(`2.4.4-1.2.3-ubi`, `latest-ubi`, and so on). Pin `2.4.4-1.2.3` for
+reproducible deployments: the plugin-only tags follow whatever base version the
+workflow was run with, so the OpenBao version underneath them can change
+between releases.
+
 Images are built for `linux/amd64` and `linux/arm64`, based on the upstream
 `openbao/openbao` and `openbao/openbao-ubi` images. The plugin binary lives at
 `/openbao/plugins/clickhouse-database-plugin`.

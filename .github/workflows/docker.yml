@@ -64,6 +64,9 @@ jobs:
           fi
           echo "Plugin version: ${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+          # Image tags carry the bare version: "2.4.4-1.2.3", not
+          # "2.4.4-v1.2.3".
+          echo "bare=${version#v}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -90,6 +93,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
+            type=raw,value=${{ steps.openbao.outputs.version }}-${{ steps.plugin.outputs.bare }}
           labels: |
             org.opencontainers.image.title=openbao-clickhouse
             org.opencontainers.image.description=OpenBao with the ClickHouse database secrets plugin preinstalled
