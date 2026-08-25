@@ -1,6 +1,6 @@
 module github.com/elaunira/openbao-plugin-database-clickhouse
 
-go 1.26.3
+go 1.26.6
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0

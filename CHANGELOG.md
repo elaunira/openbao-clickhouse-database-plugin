@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Go toolchain bumped to 1.26.3 (`go.mod`, CI workflows and the container build)
+- Go toolchain bumped to 1.26.6 (`go.mod`, CI workflows and the container build)
   and all Go module dependencies updated to their latest releases, including
   `github.com/ClickHouse/clickhouse-go/v2` v2.48.0 and
   `github.com/openbao/openbao/sdk/v2` v2.6.2.
