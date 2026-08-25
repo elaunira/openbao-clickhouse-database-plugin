@@ -5,12 +5,13 @@ BINARY_NAME=clickhouse-database-plugin
 VERSION?=dev
 LDFLAGS=-ldflags "-X main.version=$(VERSION)"
 
-# Container image settings. PLUGIN_VERSION must be valid semver: OpenBao
-# rejects plugins that self-report a non-semver version.
+# Container image settings. PLUGIN_VERSION must be valid semver with a leading
+# "v": OpenBao rejects a non-semver version, and its catalog lookups normalise
+# to a "v" prefix, so a version without one is registered but never found.
 IMAGE?=ghcr.io/digitalis-io/openbao-plugin-database-clickhouse
 IMAGE_TAG?=local
 OPENBAO_VERSION?=2.4.4
-PLUGIN_VERSION?=0.0.0-dev
+PLUGIN_VERSION?=v0.0.0-dev
 PLATFORMS?=linux/amd64,linux/arm64
 DOCKER_BUILD_ARGS=--build-arg OPENBAO_VERSION=$(OPENBAO_VERSION) --build-arg VERSION=$(PLUGIN_VERSION)
 

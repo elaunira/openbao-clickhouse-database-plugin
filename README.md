@@ -179,15 +179,17 @@ make docker-build OPENBAO_VERSION=2.4.4 PLUGIN_VERSION=1.0.0 IMAGE_TAG=1.0.0
 | `IMAGE` | `ghcr.io/digitalis-io/openbao-plugin-database-clickhouse` | Image name |
 | `IMAGE_TAG` | `local` | Image tag (`-ubi` appended for the UBI flavour) |
 | `OPENBAO_VERSION` | `2.4.4` | OpenBao base image version |
-| `PLUGIN_VERSION` | `0.0.0-dev` | Version the plugin self-reports |
+| `PLUGIN_VERSION` | `v0.0.0-dev` | Version the plugin self-reports |
 | `PLATFORMS` | `linux/amd64,linux/arm64` | Platforms for `docker-buildx` |
 | `PUSH` | unset | Set to `true` to push from `docker-buildx` |
 
 The equivalent raw Docker commands are `docker build --load --target default .`
 and `docker build --load --target ubi .`.
 
-`VERSION` must be a valid semantic version — OpenBao rejects plugins that
-self-report a non-semver version.
+`PLUGIN_VERSION` must be a valid semantic version with a leading `v`. OpenBao
+rejects plugins that self-report a non-semver version, and its catalog lookups
+normalise to a `v` prefix — a plugin stamped `1.0.0` registers as `1.0.0` but is
+then looked up as `v1.0.0` and reported as "plugin not found in the catalog".
 
 ## Usage
 

@@ -82,7 +82,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             OPENBAO_VERSION=${{ steps.openbao.outputs.version }}
-            VERSION=${{ github.ref_type == 'tag' && github.ref_name || format('0.0.0-{0}', github.sha) }}
+            VERSION=${{ github.ref_type == 'tag' && github.ref_name || format('v0.0.0-{0}', github.sha) }}
           cache-from: type=gha,scope=${{ matrix.flavour }}
           cache-to: type=gha,scope=${{ matrix.flavour }},mode=max
           provenance: mode=max

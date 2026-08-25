@@ -18,7 +18,7 @@ ARG GO_VERSION=1.24
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
 
 ARG TARGETARCH
-ARG VERSION=0.0.0-dev
+ARG VERSION=v0.0.0-dev
 
 WORKDIR /src
 
