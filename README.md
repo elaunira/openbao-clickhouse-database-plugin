@@ -113,6 +113,11 @@ Images are built for `linux/amd64` and `linux/arm64`, based on the upstream
 `openbao/openbao` and `openbao/openbao-ubi` images. The plugin binary lives at
 `/openbao/plugins/clickhouse-database-plugin`.
 
+The plugin self-reports the tag it was built from, so a `v1.2.3` tag produces a
+plugin registered in the catalog as `v1.2.3`. The workflow fails fast if the tag
+is not a valid semantic version; builds from `workflow_dispatch` on a branch are
+stamped `v0.0.0-dev.g<short-sha>`.
+
 ### Running
 
 The default command starts a dev-mode server with the plugin directory already
