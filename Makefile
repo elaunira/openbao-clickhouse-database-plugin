@@ -1,5 +1,6 @@
 .PHONY: build build-linux clean test test-short lint fmt vet tidy sha256 install \
-        docker-build docker-build-ubi docker-buildx docker-run
+        docker-build docker-build-ubi docker-buildx docker-run \
+        compose-up compose-down compose-logs compose-test
 
 BINARY_NAME=clickhouse-database-plugin
 VERSION?=dev
@@ -61,6 +62,21 @@ docker-buildx:
 		-t $(IMAGE):$(IMAGE_TAG) $(if $(filter true,$(PUSH)),--push,) .
 	docker buildx build --target ubi --platform $(PLATFORMS) $(DOCKER_BUILD_ARGS) \
 		-t $(IMAGE):$(IMAGE_TAG)-ubi $(if $(filter true,$(PUSH)),--push,) .
+
+# Local test stack: ClickHouse plus a dev-mode OpenBao with the plugin
+# configured against it (see docker-compose.yml).
+compose-up:
+	docker compose up -d --build
+
+compose-down:
+	docker compose down -v
+
+compose-logs:
+	docker compose logs -f
+
+# Issue a credential from the running stack and use it against ClickHouse.
+compose-test:
+	docker compose exec -T openbao bao read database/creds/readonly
 
 # Run a dev-mode server with the plugin already registered.
 docker-run: docker-build

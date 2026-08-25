@@ -159,6 +159,33 @@ docker run -d --name openbao \
   server -config=/openbao/config/bao.hcl
 ```
 
+### Local Test Stack
+
+`docker-compose.yml` brings up ClickHouse plus a dev-mode OpenBao with this
+plugin built in, configured against it and a `readonly` role already created:
+
+```bash
+make compose-up          # or: docker compose up -d --build
+
+export BAO_ADDR=http://127.0.0.1:8200
+export BAO_TOKEN=root
+
+bao read database/creds/readonly
+make compose-down        # or: docker compose down -v
+```
+
+The `configure` service runs once at startup: it mounts the database secrets
+engine, writes `database/config/clickhouse`, creates the `readonly` role and
+issues a test credential. Check it with `docker compose logs configure`.
+
+Overridable via the environment (or a `.env` file): `CLICKHOUSE_VERSION`,
+`CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`, `CLICKHOUSE_HTTP_PORT`,
+`CLICKHOUSE_NATIVE_PORT`, `OPENBAO_VERSION`, `PLUGIN_VERSION`, `BAO_PORT` and
+`BAO_ROOT_TOKEN`.
+
+The stack runs OpenBao in dev mode — in-memory storage, no TLS and a fixed root
+token. Use it for local testing only.
+
 ### Building Locally
 
 ```bash

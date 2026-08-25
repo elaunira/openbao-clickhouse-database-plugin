@@ -1,0 +1,103 @@
+# Local test stack: ClickHouse plus an OpenBao dev server with this plugin
+# already built in and registered.
+#
+#   docker compose up -d --build
+#   export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=root
+#   bao read database/creds/readonly
+#
+# Dev mode keeps everything in memory and uses a fixed root token, so this
+# stack is for local testing only — never for production.
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:${CLICKHOUSE_VERSION:-25.12}
+    container_name: clickhouse
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+      # The plugin creates and drops users, which requires SQL-driven access
+      # management rather than the XML-based default.
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--user", "${CLICKHOUSE_USER:-default}", "--password", "${CLICKHOUSE_PASSWORD:-clickhouse}", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  openbao:
+    build:
+      context: .
+      target: default
+      args:
+        OPENBAO_VERSION: ${OPENBAO_VERSION:-2.4.4}
+        VERSION: ${PLUGIN_VERSION:-v0.0.0-dev}
+    image: openbao-clickhouse:compose
+    container_name: openbao
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      BAO_ADDR: http://127.0.0.1:8200
+      BAO_TOKEN: ${BAO_ROOT_TOKEN:-root}
+    command:
+      - server
+      - -dev
+      - -dev-no-store-token
+      - -dev-root-token-id=${BAO_ROOT_TOKEN:-root}
+      - -dev-listen-address=0.0.0.0:8200
+      - -dev-plugin-dir=/openbao/plugins
+    ports:
+      - "${BAO_PORT:-8200}:8200"
+    cap_add:
+      - IPC_LOCK
+    healthcheck:
+      test: ["CMD", "bao", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  # One-shot: mounts the database secrets engine, points it at ClickHouse and
+  # creates a "readonly" role. Exits 0 once credentials can be issued.
+  configure:
+    image: openbao-clickhouse:compose
+    container_name: openbao-configure
+    depends_on:
+      openbao:
+        condition: service_healthy
+    environment:
+      BAO_ADDR: http://openbao:8200
+      BAO_TOKEN: ${BAO_ROOT_TOKEN:-root}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+    restart: "no"
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        bao secrets enable -path=database database 2>/dev/null || true
+
+        bao write database/config/clickhouse \
+          plugin_name=clickhouse-database-plugin \
+          allowed_roles="*" \
+          connection_url="clickhouse://{{username}}:{{password}}@clickhouse:9000/default" \
+          username="$${CLICKHOUSE_USER}" \
+          password="$${CLICKHOUSE_PASSWORD}"
+
+        bao write database/roles/readonly \
+          db_name=clickhouse \
+          creation_statements="CREATE USER '{{name}}' IDENTIFIED WITH sha256_password BY '{{password}}'; GRANT SELECT ON default.* TO '{{name}}';" \
+          revocation_statements="DROP USER IF EXISTS '{{name}}';" \
+          default_ttl=1h \
+          max_ttl=24h
+
+        echo "Issuing a test credential:"
+        bao read database/creds/readonly
