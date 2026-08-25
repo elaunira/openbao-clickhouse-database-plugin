@@ -158,17 +158,33 @@ docker run -d --name openbao \
 
 ```bash
 # Alpine flavour
-docker build --target default -t openbao-clickhouse:local .
+make docker-build
 
 # UBI flavour
-docker build --target ubi -t openbao-clickhouse:local-ubi .
+make docker-build-ubi
+
+# Dev-mode server on http://127.0.0.1:8200 with the plugin registered
+make docker-run
+
+# Multi-arch build (add PUSH=true to publish; multi-arch images cannot be
+# loaded into the local Docker daemon)
+make docker-buildx PUSH=true IMAGE_TAG=1.0.0
 
 # Pin the OpenBao base version and stamp the plugin version
-docker build --target default \
-  --build-arg OPENBAO_VERSION=2.4.4 \
-  --build-arg VERSION=1.0.0 \
-  -t openbao-clickhouse:local .
+make docker-build OPENBAO_VERSION=2.4.4 PLUGIN_VERSION=1.0.0 IMAGE_TAG=1.0.0
 ```
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `IMAGE` | `ghcr.io/digitalis-io/openbao-plugin-database-clickhouse` | Image name |
+| `IMAGE_TAG` | `local` | Image tag (`-ubi` appended for the UBI flavour) |
+| `OPENBAO_VERSION` | `2.4.4` | OpenBao base image version |
+| `PLUGIN_VERSION` | `0.0.0-dev` | Version the plugin self-reports |
+| `PLATFORMS` | `linux/amd64,linux/arm64` | Platforms for `docker-buildx` |
+| `PUSH` | unset | Set to `true` to push from `docker-buildx` |
+
+The equivalent raw Docker commands are `docker build --load --target default .`
+and `docker build --load --target ubi .`.
 
 `VERSION` must be a valid semantic version — OpenBao rejects plugins that
 self-report a non-semver version.
