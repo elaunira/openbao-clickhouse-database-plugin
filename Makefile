@@ -9,7 +9,7 @@ LDFLAGS=-ldflags "-X main.version=$(VERSION)"
 # Container image settings. PLUGIN_VERSION must be valid semver with a leading
 # "v": OpenBao rejects a non-semver version, and its catalog lookups normalise
 # to a "v" prefix, so a version without one is registered but never found.
-IMAGE?=ghcr.io/digitalis-io/openbao-plugin-database-clickhouse
+IMAGE?=ghcr.io/elaunira/openbao-plugin-database-clickhouse
 IMAGE_TAG?=local
 OPENBAO_VERSION?=2.4.4
 PLUGIN_VERSION?=v0.0.0-dev

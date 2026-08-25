@@ -103,10 +103,10 @@ Container Registry on every `v*` tag by the `Docker` workflow
 
 ```bash
 # Alpine flavour (default)
-docker pull ghcr.io/digitalis-io/openbao-plugin-database-clickhouse:latest
+docker pull ghcr.io/elaunira/openbao-plugin-database-clickhouse:latest
 
 # UBI flavour
-docker pull ghcr.io/digitalis-io/openbao-plugin-database-clickhouse:latest-ubi
+docker pull ghcr.io/elaunira/openbao-plugin-database-clickhouse:latest-ubi
 ```
 
 ### Tags
@@ -142,7 +142,7 @@ The default command starts a dev-mode server with the plugin directory already
 registered:
 
 ```bash
-docker run --rm -p 8200:8200 ghcr.io/digitalis-io/openbao-plugin-database-clickhouse:latest
+docker run --rm -p 8200:8200 ghcr.io/elaunira/openbao-plugin-database-clickhouse:latest
 
 export BAO_ADDR=http://127.0.0.1:8200
 export BAO_TOKEN=root
@@ -173,7 +173,7 @@ docker run -d --name openbao \
   -p 8200:8200 \
   -v "$PWD/config:/openbao/config" \
   -v openbao-data:/openbao/file \
-  ghcr.io/digitalis-io/openbao-plugin-database-clickhouse:latest \
+  ghcr.io/elaunira/openbao-plugin-database-clickhouse:latest \
   server -config=/openbao/config/bao.hcl
 ```
 
@@ -226,7 +226,7 @@ make docker-build OPENBAO_VERSION=2.4.4 PLUGIN_VERSION=1.0.0 IMAGE_TAG=1.0.0
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `IMAGE` | `ghcr.io/digitalis-io/openbao-plugin-database-clickhouse` | Image name |
+| `IMAGE` | `ghcr.io/elaunira/openbao-plugin-database-clickhouse` | Image name |
 | `IMAGE_TAG` | `local` | Image tag (`-ubi` appended for the UBI flavour) |
 | `OPENBAO_VERSION` | `2.4.4` | OpenBao base image version |
 | `PLUGIN_VERSION` | `v0.0.0-dev` | Version the plugin self-reports |
