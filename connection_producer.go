@@ -135,10 +135,13 @@ func (c *clickhouseConnectionProducer) Close() error {
 	return nil
 }
 
+// maskedPassword replaces the password wherever it would otherwise be logged.
+const maskedPassword = "[password]"
+
 // SecretValues returns sensitive values for masking in logs.
 func (c *clickhouseConnectionProducer) SecretValues() map[string]string {
 	return map[string]string{
-		c.Password: "[password]",
+		c.Password: maskedPassword,
 	}
 }
 

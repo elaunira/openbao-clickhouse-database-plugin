@@ -9,10 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Container images now also publish a combined
+  `{openbao-version}-{plugin-version}` tag (for example `2.4.4-1.2.3`, and
+  `2.4.4-1.2.3-ubi` for the UBI flavour) so a deployment can pin both the
+  OpenBao base version and the plugin version.
+- `golangci-lint` is pinned to v2.13.1 in CI so a new linter release cannot
+  fail a branch that changed nothing.
 - Go toolchain bumped to 1.26.6 (`go.mod`, CI workflows and the container build)
   and all Go module dependencies updated to their latest releases, including
   `github.com/ClickHouse/clickhouse-go/v2` v2.48.0 and
   `github.com/openbao/openbao/sdk/v2` v2.6.2.
+
+### Fixed
+
+- `testhelpers`: `BuildConnString` built the host with `string(rune(port))`,
+  which produced a garbage host instead of `host:port`. It now uses
+  `net.JoinHostPort`.
 
 ### Added
 

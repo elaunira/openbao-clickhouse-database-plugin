@@ -7,8 +7,10 @@ package clickhousehelper
 import (
 	"context"
 	"database/sql"
+	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/openbao/openbao/sdk/v2/helper/docker"
@@ -121,7 +123,7 @@ func BuildConnString(host string, port int, username, password string, useTLS, s
 
 	return (&url.URL{
 		Scheme:   "clickhouse",
-		Host:     host + ":" + string(rune(port)),
+		Host:     net.JoinHostPort(host, strconv.Itoa(port)),
 		RawQuery: q.Encode(),
 	}).String()
 }
